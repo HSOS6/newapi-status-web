@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewAPI Status</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .card { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all duration-300 hover:shadow-md; }
+        .stat-value { @apply text-3xl font-bold text-gray-900 mt-2; }
+        .stat-label { @apply text-sm font-medium text-gray-500 uppercase tracking-wider; }
+        [v-cloak] { display: none; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak class="min-h-screen py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center sm:text-left sm:flex sm:justify-between sm:items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{{ siteTitle }}</h1>
+                <p class="mt-2 text-gray-600">实时监控 API 调用与模型使用情况</p>
+            </div>
+            <div class="mt-4 sm:mt-0 text-sm text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-100">
+                <span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                系统运行正常
+            </div>
+        </header>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center items-center h-64">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-700">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div v-else class="space-y-8">
+            <!-- Overview Cards (24h) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <!-- Total Calls -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <div class="text-sm font-medium text-gray-500 mb-1">24h 总调用次数</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-gray-900">{{ formatNumber(stats24h.totalCalls) }}</div>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Total Tokens -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <div class="text-sm font-medium text-gray-500 mb-1">24h 总 Token 数</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-gray-900">{{ formatNumber(stats24h.totalTokens) }}</div>
+                    </div>
+                    <div class="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- RPM -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <div class="text-sm font-medium text-gray-500 mb-1">24h 平均 RPM</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-gray-900">{{ stats24h.avgRPM }}</div>
+                        <div class="text-xs text-gray-400 mt-1">Reqs / Min</div>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- TPM -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <div class="text-sm font-medium text-gray-500 mb-1">24h 平均 TPM</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-gray-900">{{ formatNumber(stats24h.avgTPM) }}</div>
+                        <div class="text-xs text-gray-400 mt-1">Tokens / Min</div>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-6">24小时请求趋势</h3>
+                <div id="chart" class="w-full h-80"></div>
+            </div>
+
+            <!-- Ranking Section -->
+            <div class="card">
+                <div class="sm:flex sm:items-center sm:justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">模型调用排行</h3>
+                    
+                    <!-- Tabs -->
+                    <div class="mt-4 sm:mt-0 flex space-x-4">
+                        <!-- Time Range Tab -->
+                        <div class="bg-gray-100 p-1 rounded-lg inline-flex">
+                            <button @click="timeRange = '24h'" 
+                                :class="{'bg-white shadow text-gray-900': timeRange === '24h', 'text-gray-500 hover:text-gray-700': timeRange !== '24h'}"
+                                class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">
+                                24小时
+                            </button>
+                            <button @click="timeRange = '7d'" 
+                                :class="{'bg-white shadow text-gray-900': timeRange === '7d', 'text-gray-500 hover:text-gray-700': timeRange !== '7d'}"
+                                class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">
+                                7天
+                            </button>
+                        </div>
+                        
+                        <!-- Metric Tab -->
+                        <div class="bg-gray-100 p-1 rounded-lg inline-flex">
+                            <button @click="metric = 'calls'" 
+                                :class="{'bg-white shadow text-blue-600': metric === 'calls', 'text-gray-500 hover:text-gray-700': metric !== 'calls'}"
+                                class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">
+                                按次数
+                            </button>
+                            <button @click="metric = 'tokens'" 
+                                :class="{'bg-white shadow text-blue-600': metric === 'tokens', 'text-gray-500 hover:text-gray-700': metric !== 'tokens'}"
+                                class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">
+                                按 Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排名</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">模型名称</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">调用次数</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Token 消耗</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">占比</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr v-for="(item, index) in currentRanking" :key="item.model_name" class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <span :class="{'bg-yellow-100 text-yellow-800': index === 0, 'bg-gray-100 text-gray-800': index > 0}" class="px-2.5 py-0.5 rounded-full font-medium">
+                                        #{{ index + 1 }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ item.model_name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-mono">{{ formatNumber(item.count) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-mono">{{ formatNumber(item.token_used) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                                    <div class="flex items-center justify-end">
+                                        <span class="mr-2">{{ calculatePercentage(item) }}%</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5">
+                                            <div class="bg-blue-600 h-1.5 rounded-full" :style="{ width: calculatePercentage(item) + '%' }"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="currentRanking.length === 0">
+                                <td colspan="5" class="px-6 py-10 text-center text-gray-500">暂无数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="mt-12 pb-8 border-t border-gray-200 pt-8">
+            <div class="flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
+                <p>&copy; 2026 {{ siteTitle }}. All rights reserved.</p>
+                <div class="flex items-center space-x-4 mt-4 md:mt-0">
+                    <a href="https://github.com/HSOS6/newapi-status-web" target="_blank" class="flex items-center hover:text-gray-900 transition-colors">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" /></svg>
+                        GitHub
+                    </a>
+                    <span class="text-gray-300">|</span>
+                    <span>License: GNU GPLv3</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                const loading = ref(true);
+                const error = ref(null);
+                const siteTitle = ref('NewAPI Status'); // 默认值
+                const rawData24h = ref([]);
+                const rawData7d = ref([]);
+                
+                const timeRange = ref('24h'); // '24h' or '7d'
+                const metric = ref('calls'); // 'calls' or 'tokens'
+                
+                let chartInstance = null;
+
+                const stats24h = computed(() => {
+                    if (!rawData24h.value.length) return { totalCalls: 0, totalTokens: 0, avgRPM: 0, avgTPM: 0 };
+                    
+                    const totalCalls = rawData24h.value.reduce((sum, item) => sum + (item.count || 0), 0);
+                    const totalTokens = rawData24h.value.reduce((sum, item) => sum + (item.token_used || 0), 0);
+                    
+                    // 24h = 1440 minutes
+                    const avgRPM = (totalCalls / 1440).toFixed(2);
+                    const avgTPM = Math.floor(totalTokens / 1440);
+                    
+                    return { totalCalls, totalTokens, avgRPM, avgTPM };
+                });
+
+                const currentRanking = computed(() => {
+                    const sourceData = timeRange.value === '24h' ? rawData24h.value : rawData7d.value;
+                    if (!sourceData.length) return [];
+
+                    // Aggregate by model name
+                    const map = new Map();
+                    sourceData.forEach(item => {
+                        if (!map.has(item.model_name)) {
+                            map.set(item.model_name, { model_name: item.model_name, count: 0, token_used: 0 });
+                        }
+                        const entry = map.get(item.model_name);
+                        entry.count += item.count || 0;
+                        entry.token_used += item.token_used || 0;
+                    });
+
+                    const list = Array.from(map.values());
+                    
+                    // Sort
+                    return list.sort((a, b) => {
+                        if (metric.value === 'calls') {
+                            return b.count - a.count;
+                        } else {
+                            return b.token_used - a.token_used;
+                        }
+                    }).slice(0, 30);
+                });
+
+                const calculatePercentage = (item) => {
+                    const sourceData = timeRange.value === '24h' ? rawData24h.value : rawData7d.value;
+                    const total = sourceData.reduce((sum, i) => sum + (metric.value === 'calls' ? i.count : i.token_used), 0);
+                    if (total === 0) return 0;
+                    const val = metric.value === 'calls' ? item.count : item.token_used;
+                    return ((val / total) * 100).toFixed(1);
+                };
+
+                const formatNumber = (num) => {
+                    return new Intl.NumberFormat().format(num);
+                };
+
+                const fetchData = async () => {
+                    loading.value = true;
+                    error.value = null;
+                    try {
+                        // 获取配置
+                        fetch('/api/config')
+                            .then(r => r.json())
+                            .then(config => {
+                                if (config.siteTitle) {
+                                    siteTitle.value = config.siteTitle;
+                                    document.title = config.siteTitle;
+                                }
+                            })
+                            .catch(console.error);
+
+                        const [res24h, res7d] = await Promise.all([
+                            fetch('/api/stats?range=24h').then(r => r.json()),
+                            fetch('/api/stats?range=7d').then(r => r.json())
+                        ]);
+
+                        if (res24h.success) rawData24h.value = res24h.data || [];
+                        if (res7d.success) rawData7d.value = res7d.data || [];
+                        
+                        initChart();
+                    } catch (e) {
+                        error.value = "加载数据失败，请稍后重试。";
+                        console.error(e);
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const initChart = () => {
+                    const chartDom = document.getElementById('chart');
+                    if (!chartDom) return;
+                    
+                    // 销毁旧实例以防内存泄漏或状态残留
+                    if (chartInstance) {
+                        chartInstance.dispose();
+                    }
+                    chartInstance = echarts.init(chartDom);
+
+                    // 生成最近24小时的时间桶
+                    const now = Date.now();
+                    const buckets = [];
+                    // 从23小时前到当前小时
+                    for (let i = 23; i >= 0; i--) {
+                        // 每个桶的时间范围：[当前时间 - (i+1)小时, 当前时间 - i小时)
+                        // 注意：为了让图表横轴显示整点，我们可以稍微调整一下策略
+                        // 策略：以当前时间为基准，向回推24个整点
+                        
+                        // 简单做法：以当前时间倒推24小时，每小时一个点
+                        const endTime = now - i * 3600 * 1000;
+                        const startTime = endTime - 3600 * 1000;
+                        const date = new Date(endTime);
+                        
+                        buckets.push({
+                            start: startTime,
+                            end: endTime,
+                            label: `${date.getHours().toString().padStart(2, '0')}:00`,
+                            count: 0
+                        });
+                    }
+
+                    // 填充数据
+                    if (rawData24h.value && rawData24h.value.length) {
+                        rawData24h.value.forEach(item => {
+                            if (!item.created_at) return;
+                            const itemTime = item.created_at * 1000;
+                            
+                            // 查找匹配的桶
+                            const bucket = buckets.find(b => itemTime >= b.start && itemTime < b.end);
+                            if (bucket) {
+                                bucket.count += (item.count || 0);
+                            }
+                        });
+                    }
+
+                    const xData = buckets.map(b => b.label);
+                    const yData = buckets.map(b => b.count);
+
+                    const option = {
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: { type: 'shadow' }
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: xData,
+                            axisLine: { lineStyle: { color: '#E5E7EB' } },
+                            axisLabel: { color: '#6B7280' }
+                        },
+                        yAxis: {
+                            type: 'value',
+                            splitLine: { lineStyle: { type: 'dashed', color: '#F3F4F6' } },
+                            axisLabel: { color: '#6B7280' }
+                        },
+                        series: [{
+                            name: '请求次数',
+                            type: 'line',
+                            smooth: true,
+                            showSymbol: false,
+                            data: yData,
+                            itemStyle: { color: '#3B82F6' },
+                            areaStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: 'rgba(59, 130, 246, 0.2)' },
+                                    { offset: 1, color: 'rgba(59, 130, 246, 0)' }
+                                ])
+                            }
+                        }]
+                    };
+                    
+                    chartInstance.setOption(option);
+                };
+
+                // Watch for data changes
+                watch([rawData24h], () => {
+                     // Use nextTick equivalent
+                     setTimeout(initChart, 0);
+                });
+                
+                // Handle resize
+                window.addEventListener('resize', () => {
+                    chartInstance && chartInstance.resize();
+                });
+
+                onMounted(() => {
+                    fetchData();
+                });
+
+                return {
+                    loading,
+                    error,
+                    stats24h,
+                    timeRange,
+                    metric,
+                    siteTitle,
+                    currentRanking,
+                    formatNumber,
+                    calculatePercentage
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
