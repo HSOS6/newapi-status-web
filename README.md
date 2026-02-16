@@ -47,15 +47,15 @@
     docker build -t newapi-status .
     ```
 
-2.  **运行容器** (带环境变量配置)：
+2.  **运行容器** (带环境变量配置，请修改内容)：
     ```bash
     docker run -d \
       --name newapi-status \
       -p 3000:3000 \
-      -e NEWAPI_URL="https://api.xinjianya.top/api/data/" \
+      -e NEWAPI_URL="https://XXXXXXXX/api/data/" \
       -e NEWAPI_KEY="你的API_KEY" \
       -e NEWAPI_ADMIN_ID="1" \
-      -e SITE_TITLE="星见雅API" \
+      -e SITE_TITLE="XXXAPI" \
       --restart always \
       newapi-status
     ```
