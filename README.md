@@ -8,31 +8,29 @@
 - **排行榜**：按模型调用次数和 Token 数排序。
 - **可视化**：24 小时请求趋势折线图。
 - **关键指标**：计算平均 TPM (Tokens Per Minute) 和 RPM (Requests Per Minute)。
-- **响应式设计**：完美适配电脑和手机端。
+- **响应式设计**：视图适配电脑和手机端。
+> 如需添加可以提issues或者pr哦~
 
 ## 配置教程（先进行配置再部署！）
 
 1.  **下载**：
-    - 登录NEWAPI控制台。
-    -
-
+    - 下载本项目所有文件并解压
+    - 打开解压的文件夹
 
 2.  **配置环境变量.env**：
+    - 编辑文件夹中 `.env` 文件，填入你的 API 密钥（系统访问令牌）和站点名称
 
-      ```bash
-      cp .env.example .env
-      ```
-    - 编辑 `.env` 文件，填入你的 API 密钥和其他必要配置。
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/2abd01f0-34c6-4cbe-990c-e4cd732ee511" />
 
 ## 部署指南
 
-推荐使用 **Docker** 或 **PM2** 进行部署，两者都很方便。
+推荐使用 **Docker** 进行部署，真的很方便。
 
 ### 方式一：Docker 部署 (最推荐)
 
 如果你服务器上有 Docker，这是最简单的。我们提供了 **Docker Compose** 和 **Docker CLI** 两种方式。
 
-#### A. 使用 Docker Compose (推荐)
+#### A. 使用 Docker Compose (推荐，测试过)
 
 1.  确保你已安装 `docker` 和 `docker-compose`。
 2.  确保项目根目录下有 `.env` 配置文件（参考 `.env.example` 或直接使用现有的）。
@@ -61,6 +59,8 @@
       --restart always \
       newapi-status
     ```
+    
+### 备注：.env更新后需要删除容器重新运行！
 
 ### 方式二：常规部署 (Node.js + PM2)
 
